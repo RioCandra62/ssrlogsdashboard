@@ -1,17 +1,16 @@
-import subprocess
-import sys
-ip_address = "10.10.10.155"
-result = subprocess.run(["ping", "-n", "1", ip_address], capture_output=True, text=True)
+import socket
 
-output = result.stdout
+def check_connection(ip_address, port=1433, timeout=3):
+    try:
+        # Mencoba membuka koneksi TCP ke IP dan Port tujuan
+        with socket.create_connection((ip_address, port), timeout=timeout):
+            print("Koneksi ke database aman!")
+            return True
+    except OSError:
+        print("Server tidak merespon / port tertutup!")
+        return False
 
-# Cek apakah ada indikasi RTO atau host tidak dapat dijangkau
-if "Request timed out" in output or "unreachable" in output or "100% loss" in output:
-    print(f"[{ip_address}] RTO! Terminating...")
-    sys.exit()  # Keluar dari script
-
-print(f"[{ip_address}] Ping success, program is running.")
-print("Output detail:", output)
+# Panggil fungsi ini di awal file mlssr.py menggantikan subprocess.run
 
 # In[3]:
 
