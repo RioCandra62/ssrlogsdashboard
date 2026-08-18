@@ -60,6 +60,7 @@ db_url = f"mssql+pyodbc://{username}:{password}@{server_name}/{database_name}?dr
 # engine = create_engine(db_url)
 
 failure_query = "SELECT * FROM ssrlogs.failure_summary"
+df_failure = pd.DataFrame()
 try:
     # Membaca jauh lebih cepat dari Pandas
     df_failure_polars = pl.read_database_uri(failure_query, db_url)
@@ -68,10 +69,12 @@ try:
     df_failure = df_failure_polars.to_pandas() 
     
 except Exception as e:
+    pass
     print(e)
 
 
 azimuth_query = "SELECT * FROM ssrlogs.azimuth"
+df_azimuth = pd.DataFrame()
 try:
     # Membaca jauh lebih cepat dari Pandas
     df_azimuth_polars = pl.read_database_uri(azimuth_query, db_url)
@@ -80,9 +83,11 @@ try:
     df_azimuth = df_azimuth_polars.to_pandas() 
     
 except Exception as e:
+    pass
     print(e)
 
 encoder_query = "SELECT * FROM ssrlogs.encoderAlarm"
+df_encoder = pd.DataFrame()
 try:
     # Membaca jauh lebih cepat dari Pandas
     df_encoder_polars = pl.read_database_uri(encoder_query, db_url)
@@ -91,10 +96,12 @@ try:
     df_encoder = df_encoder_polars.to_pandas() 
     
 except Exception as e:
+    pass
     print(e)
 
 
 netburner_query = "SELECT * FROM ssrlogs.netburner"
+df_netburner = pd.DataFrame()
 try:
     # Membaca jauh lebih cepat dari Pandas
     df_netburner_polars = pl.read_database_uri(netburner_query, db_url)
@@ -106,12 +113,11 @@ except Exception as e:
     print(e)
 
 elev_query = "SELECT * FROM ssrlogs.elevationCurrent"
+df_elev = pd.DataFrame()
 try:
     #Membaca jauh lebih cepat dari Pandas
     df_elev_polars = pl.read_database_uri(elev_query, db_url)
     
-    # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
-    df_elev = df_elev_polars.to_pandas() 
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_elev = df_elev_polars.to_pandas() 
     
