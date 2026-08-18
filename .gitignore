@@ -42,5 +42,8 @@ next-env.d.ts
 sample.json
 
 
+#ignore CSV
+csv*
+
 # backend folder
 /ssr

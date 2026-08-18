@@ -31,10 +31,22 @@ function processDailyData(data: SystemData | null) {
       record.created_at;
     if (!dateVal) return "Unknown Date";
     try {
+      const strVal = String(dateVal).trim();
+      // First try to extract YYYY-MM-DD directly to completely avoid timezone issues
+      const match = strVal.match(/^\d{4}-\d{2}-\d{2}/);
+      if (match) {
+        return match[0];
+      }
+      
       const d = new Date(dateVal);
       if (isNaN(d.getTime()))
-        return String(dateVal).split(" ")[0] || "Unknown Date";
-      return d.toISOString().split("T")[0];
+        return strVal.split(" ")[0] || "Unknown Date";
+      
+      // If we must use Date object, use local methods instead of toISOString (which forces UTC)
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     } catch {
       return String(dateVal).split(" ")[0] || "Unknown Date";
     }
@@ -102,6 +114,89 @@ function processRadarData(data: SystemData | null) {
   return Object.values(radarCounts).sort((a, b) => b.total - a.total);
 }
 
+function filterDataByTimeRange(data: SystemData | null, timeRange: string): SystemData | null {
+  if (!data || timeRange === "All" || !timeRange) return data;
+
+  const parseDateString = (dateVal: any): Date | null => {
+    const strVal = String(dateVal).trim();
+    const match = strVal.match(/^\d{4}-\d{2}-\d{2}/);
+    let d: Date;
+    if (match) {
+      const parts = match[0].split("-");
+      d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    } else {
+      d = new Date(dateVal);
+    }
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  let latestDate = new Date(0);
+  const checkLatest = (items: any[]) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      const dateVal =
+        item.date ||
+        item.Date ||
+        item.time ||
+        item.Time ||
+        item.timestamp ||
+        item.Timestamp ||
+        item.created_at;
+      if (!dateVal) continue;
+      const d = parseDateString(dateVal);
+      if (d && d > latestDate) {
+        latestDate = d;
+      }
+    }
+  };
+
+  checkLatest(data.failure);
+  checkLatest(data.encoder);
+  checkLatest(data.netburner);
+  checkLatest(data.elev);
+  checkLatest(data.azimuth);
+
+  const now = latestDate.getTime() === 0 ? new Date() : latestDate;
+  let cutoffDate = new Date(now);
+
+  if (timeRange === "Last 7 days") {
+    cutoffDate.setDate(now.getDate() - 7);
+  } else if (timeRange === "Last 30 days") {
+    cutoffDate.setDate(now.getDate() - 30);
+  } else if (timeRange === "This Year") {
+    cutoffDate = new Date(now.getFullYear(), 0, 1);
+  }
+
+  cutoffDate.setHours(0, 0, 0, 0);
+
+  const filterItems = (items: any[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.filter((item) => {
+      const dateVal =
+        item.date ||
+        item.Date ||
+        item.time ||
+        item.Time ||
+        item.timestamp ||
+        item.Timestamp ||
+        item.created_at;
+      if (!dateVal) return true;
+
+      const d = parseDateString(dateVal);
+      if (!d) return true;
+      return d >= cutoffDate;
+    });
+  };
+
+  return {
+    failure: filterItems(data.failure),
+    encoder: filterItems(data.encoder),
+    netburner: filterItems(data.netburner),
+    elev: filterItems(data.elev),
+    azimuth: filterItems(data.azimuth),
+  };
+}
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function DashboardClient({
@@ -110,6 +205,8 @@ export default function DashboardClient({
   fallbackData: SystemData;
 }) {
   const [activeTab2, setActiveTab2] = useState("Azimuth");
+  const [radarTimeRange, setRadarTimeRange] = useState("All");
+  const [activityTimeRange, setActivityTimeRange] = useState("Last 30 days");
 
   const tabs2 = ["Azimuth", "Elevation", "Encoder & Netburner"];
 
@@ -130,10 +227,20 @@ export default function DashboardClient({
   });
 
   const activeData = data || fallbackData;
-  const chartData = useMemo(() => processDailyData(activeData), [activeData]);
+  
+  const filteredActivityData = useMemo(
+    () => filterDataByTimeRange(activeData, activityTimeRange),
+    [activeData, activityTimeRange]
+  );
+  const chartData = useMemo(() => processDailyData(filteredActivityData), [filteredActivityData]);
+  
+  const filteredRadarData = useMemo(
+    () => filterDataByTimeRange(activeData, radarTimeRange),
+    [activeData, radarTimeRange]
+  );
   const radarChartData = useMemo(
-    () => processRadarData(activeData),
-    [activeData],
+    () => processRadarData(filteredRadarData),
+    [filteredRadarData],
   );
 
   const failures = useMemo(() => activeData?.failure || [], [activeData]);
@@ -251,28 +358,6 @@ export default function DashboardClient({
             Here's what's happening with your radar systems today.
           </p>
         </div>
-        <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors shadow-sm">
-            Export Data
-          </button>
-          <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            New Scan
-          </button>
-        </div>
       </div>
 
       {/* Stats Cards */}
@@ -364,13 +449,17 @@ export default function DashboardClient({
                 Activity Overview
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Scans over the last 30 days
+                Scans over {activityTimeRange === 'This Year' ? 'this year' : `the ${activityTimeRange.toLowerCase()}`}
               </p>
             </div>
-            <select className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2">
-              <option>Last 7 days</option>
-              <option>Last 30 days</option>
-              <option>This Year</option>
+            <select 
+              value={activityTimeRange}
+              onChange={(e) => setActivityTimeRange(e.target.value)}
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2"
+            >
+              <option value="Last 7 days">Last 7 days</option>
+              <option value="Last 30 days">Last 30 days</option>
+              <option value="This Year">This Year</option>
             </select>
           </div>
           <div className="flex-1 w-full h-[300px] mt-4">
@@ -431,13 +520,18 @@ export default function DashboardClient({
               Number of Fault Radar
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Scans over the last 30 days
+              {radarTimeRange === "All" ? "All time scans" : `Scans over ${radarTimeRange === 'This Year' ? 'this year' : `the ${radarTimeRange.toLowerCase()}`}`}
             </p>
           </div>
-          <select className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2">
-            <option>Last 7 days</option>
-            <option>Last 30 days</option>
-            <option>This Year</option>
+          <select 
+            value={radarTimeRange}
+            onChange={(e) => setRadarTimeRange(e.target.value)}
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2"
+          >
+            <option value="All">All</option>
+            <option value="Last 7 days">Last 7 days</option>
+            <option value="Last 30 days">Last 30 days</option>
+            <option value="This Year">This Year</option>
           </select>
         </div>
         <div className="flex-1 w-full h-[40vh] mt-4">

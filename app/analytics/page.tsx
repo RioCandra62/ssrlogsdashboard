@@ -24,6 +24,8 @@ export default function AnalyticsPage() {
   const [apriori, setApriori] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<"stabil" | "encoder" | "netburner" | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -288,14 +290,20 @@ export default function AnalyticsPage() {
             <div className="p-0 overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b dark:border-gray-800 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-slate-50 dark:bg-slate-900/50">
+                  <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-slate-50 dark:bg-slate-900/50">
                     <th className="py-4 px-6">Kategori Cluster</th>
                     <th className="py-4 px-6 text-center">Tingkat Risiko</th>
                     <th className="py-4 px-6 text-right">Jumlah Radar</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                  <tr 
+                    className="hover:bg-slate-100 dark:hover:bg-slate-800/80 transition cursor-pointer"
+                    onClick={() => {
+                      setSelectedCategory("stabil");
+                      setIsModalOpen(true);
+                    }}
+                  >
                     <td className="py-4 px-6 font-medium text-slate-800 dark:text-slate-200">
                       <span className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -311,7 +319,13 @@ export default function AnalyticsPage() {
                       {summary.stabil}
                     </td>
                   </tr>
-                  <tr className="border-b dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                  <tr 
+                    className="hover:bg-slate-100 dark:hover:bg-slate-800/80 transition cursor-pointer"
+                    onClick={() => {
+                      setSelectedCategory("encoder");
+                      setIsModalOpen(true);
+                    }}
+                  >
                     <td className="py-4 px-6 font-medium text-slate-800 dark:text-slate-200">
                       <span className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
@@ -327,7 +341,13 @@ export default function AnalyticsPage() {
                       {summary.encoder}
                     </td>
                   </tr>
-                  <tr className="border-b dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                  <tr 
+                    className="hover:bg-slate-100 dark:hover:bg-slate-800/80 transition cursor-pointer"
+                    onClick={() => {
+                      setSelectedCategory("netburner");
+                      setIsModalOpen(true);
+                    }}
+                  >
                     <td className="py-4 px-6 font-medium text-slate-800 dark:text-slate-200">
                       <span className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-rose-500"></span>
@@ -436,7 +456,7 @@ export default function AnalyticsPage() {
                 <div className="p-0 overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b dark:border-gray-800 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-slate-50 dark:bg-slate-900/50">
+                      <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-slate-50 dark:bg-slate-900/50">
                         <th className="py-3 px-4">Radar No</th>
                         <th className="py-3 px-4">Komponen</th>
                         <th className="py-3 px-4 text-right">MTBF</th>
@@ -446,7 +466,7 @@ export default function AnalyticsPage() {
                       {top5Mtbf.map((t, i) => (
                         <tr
                           key={i}
-                          className="border-b dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
                         >
                           <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">
                             {t.radar_no}
@@ -493,7 +513,7 @@ export default function AnalyticsPage() {
               <div className="p-0 overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b dark:border-gray-800 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-slate-50 dark:bg-slate-900/50">
+                    <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-slate-50 dark:bg-slate-900/50">
                       <th className="py-4 px-6">Pemicu (Jika)</th>
                       <th className="py-4 px-6">Dampak (Maka)</th>
                       <th className="py-4 px-6 w-1/4">Kepastian (Confidence)</th>
@@ -504,7 +524,7 @@ export default function AnalyticsPage() {
                     {apriori.map((a, i) => (
                       <tr
                         key={i}
-                        className="border-b dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
                       >
                         <td className="py-4 px-6">
                           <span className="inline-flex px-3 py-1.5 rounded-md text-xs font-semibold capitalize bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
@@ -601,6 +621,72 @@ export default function AnalyticsPage() {
 
         </div>
       ) : null}
+
+      {/* Modal */}
+      {isModalOpen && selectedCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div 
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                Daftar Radar - {selectedCategory === "stabil" ? "Stabil / Sehat" : selectedCategory === "encoder" ? "Rawan Encoder" : "Rawan Netburner"}
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-0 overflow-y-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                  <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-slate-50 dark:bg-slate-900/50 shadow-sm">
+                    <th className="py-3 px-6">Radar No</th>
+                    <th className="py-3 px-6 text-center">Encoder Errors</th>
+                    <th className="py-3 px-6 text-center">Netburner Errors</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scatterData[selectedCategory]?.length > 0 ? (
+                    scatterData[selectedCategory].map((radar: any, i: number) => (
+                      <tr key={i} className="border-b dark:border-gray-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                        <td className="py-3 px-6 font-medium text-slate-800 dark:text-slate-200">
+                          {radar.radar_no}
+                        </td>
+                        <td className="py-3 px-6 text-center text-gray-600 dark:text-gray-400">
+                          {radar.x}
+                        </td>
+                        <td className="py-3 px-6 text-center text-gray-600 dark:text-gray-400">
+                          {radar.y}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                        Tidak ada data radar untuk kategori ini.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-slate-800 text-right">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium transition"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

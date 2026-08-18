@@ -24,7 +24,6 @@ load_dotenv()
 
 
 # 1. KONFIGURASI KONEKSI DATABASE
-# Ganti dengan nama Server-mu (kalau lokal, biasanya '.' atau 'localhost' atau 'NamaLaptop\SQLEXPRESS')
 server_name = os.getenv("DATABASE_SERVER") 
 database_name = os.getenv("DATABASE_NAME")
 username = os.getenv("DATABASE_USERNAME")
@@ -41,25 +40,14 @@ password = os.getenv("DATABASE_PASSWORD")
 import polars as pl
 
 db_url = f"mssql+pyodbc://{username}:{password}@{server_name}/{database_name}?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes"
+engine = create_engine(db_url)
+print("Fetching data")
 
-
-query = "SELECT * FROM ssrlogs.elevationCurrent"
+failure_query = "SELECT * FROM ssrlogs.failure_summary"
 try:
+    print("Failure summary...")
     # Membaca jauh lebih cepat dari Pandas
-    df_elev_polars = pl.read_database_uri(query, db_url)
-    
-    # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
-    df_elev = df_elev_polars.to_pandas() 
-    
-    print("Elevation Current Done! (Polars Engine)")
-except Exception as e:
-    print(f"Error fetching data: {e}")
-
-
-query = "SELECT * FROM ssrlogs.failure_summary"
-try:
-    # Membaca jauh lebih cepat dari Pandas
-    df_failure_polars = pl.read_database_uri(query, db_url)
+    df_failure_polars = pl.read_database_uri(failure_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_failure = df_failure_polars.to_pandas() 
@@ -68,10 +56,11 @@ try:
 except Exception as e:
     print(f"Error fetching data: {e}")
 
-query = "SELECT * FROM ssrlogs.azimuth"
+azimuth_query = "SELECT * FROM ssrlogs.azimuth"
 try:
+    print("azimuth...")
     # Membaca jauh lebih cepat dari Pandas
-    df_azimuth_polars = pl.read_database_uri(query, db_url)
+    df_azimuth_polars = pl.read_database_uri(azimuth_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_azimuth = df_azimuth_polars.to_pandas() 
@@ -81,10 +70,11 @@ except Exception as e:
     print(f"Error fetching data: {e}")
 
 
-query = "SELECT * FROM ssrlogs.encoderAlarm"
+encoder_query = "SELECT * FROM ssrlogs.encoderAlarm"
 try:
+    print("Encoder Alarm...")
     # Membaca jauh lebih cepat dari Pandas
-    df_encoder_polars = pl.read_database_uri(query, db_url)
+    df_encoder_polars = pl.read_database_uri(encoder_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_encoder = df_encoder_polars.to_pandas() 
@@ -95,15 +85,34 @@ except Exception as e:
 
 
 
-query = "SELECT * FROM ssrlogs.netburner"
+netburner_query = "SELECT * FROM ssrlogs.netburner"
 try:
     # Membaca jauh lebih cepat dari Pandas
-    df_netburner_polars = pl.read_database_uri(query, db_url)
+    print("Netburner...")
+    df_netburner_polars = pl.read_database_uri(netburner_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_netburner = df_netburner_polars.to_pandas() 
     
     print("NetBurner Done! (Polars Engine)")
+except Exception as e:
+    print(f"Error fetching data: {e}")
+
+
+elev_query = "SELECT * FROM ssrlogs.elevationCurrent"
+try:
+    print("Elevation...")
+    # Membaca jauh lebih cepat dari Pandas
+    # df_elev_polars = pl.read_database_uri(elev_query, db_url)
+    
+    # # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
+    # df_elev = df_elev_polars.to_pandas() 
+    
+    # using Pandas
+    df_elev = pd.read_sql(elev_query, engine)
+
+
+    print("Elevation Current Done! (Polars Engine)")
 except Exception as e:
     print(f"Error fetching data: {e}")
 
@@ -119,12 +128,12 @@ print(f"Total baris Netburner : {len(df_netburner)}")
 
 # 3. SIMPAN KE CSV SEMENTARA (Opsional tapi sangat disarankan)
 # Supaya besok kalau mau eksperimen ML, nggak perlu narik dari SQL lagi, cukup baca CSV ini.
-df_failure.to_csv('failure_summary_raw.csv', index=False)
-df_encoder.to_csv('encoder_raw.csv', index=False)
-df_netburner.to_csv('netburner_raw.csv', index=False)
-df_azimuth.to_csv('azimuth_raw.csv', index=False)
-df_elev.to_csv('elevation_raw.csv', index=False)
-print("\nData mentah sudah dibackup ke file CSV lokal.")
+# df_failure.to_csv('failure_summary_raw.csv', index=False)
+# df_encoder.to_csv('encoder_raw.csv', index=False)
+# df_netburner.to_csv('netburner_raw.csv', index=False)
+# df_azimuth.to_csv('azimuth_raw.csv', index=False)
+# df_elev.to_csv('elevation_raw.csv', index=False)
+# print("\nData mentah sudah dibackup ke file CSV lokal.")
 
 
 
@@ -180,12 +189,37 @@ print("Selesai! File 'radar_clusters_result.csv' siap ditarik ke Power BI.")
 # 1. Pilih hanya kolom nama radar dan Cluster ID
 df_kategori = df_radar[['radar_no', 'Cluster_ID']].copy()
 
-# 2. Buat kamus untuk mengubah angka menjadi nama kategori yang jelas
-nama_kategori = {
-    0: '🟢 Stabil / Sehat',
-    1: '🔴 Rawan Netburner',
-    2: '🟡 Rawan Encoder'
-}
+# 2. Buat kamus secara dinamis berdasarkan rata-rata tiap kelompok
+# (K-Means membagikan ID 0,1,2 secara acak, jadi kita tidak bisa hardcode)
+cluster_means = df_radar.groupby('Cluster_ID')[['Total_Error_Encoder', 'Total_Error_Netburner']].mean()
+cluster_means['Total_Error'] = cluster_means['Total_Error_Encoder'] + cluster_means['Total_Error_Netburner']
+
+nama_kategori = {}
+
+if len(cluster_means) > 0:
+    # Cluster dengan total error terendah pasti "Stabil / Sehat"
+    stabil_id = cluster_means['Total_Error'].idxmin()
+    nama_kategori[stabil_id] = '🟢 Stabil / Sehat'
+    
+    # Sisa cluster (biasanya 2 lagi)
+    remaining_ids = cluster_means.index.drop(stabil_id)
+    
+    if len(remaining_ids) == 2:
+        id1, id2 = remaining_ids
+        # Bandingkan mana yang rata-rata error encoder-nya lebih tinggi
+        if cluster_means.loc[id1, 'Total_Error_Encoder'] > cluster_means.loc[id2, 'Total_Error_Encoder']:
+            nama_kategori[id1] = '🟡 Rawan Encoder'
+            nama_kategori[id2] = '🔴 Rawan Netburner'
+        else:
+            nama_kategori[id2] = '🟡 Rawan Encoder'
+            nama_kategori[id1] = '🔴 Rawan Netburner'
+    else:
+        # Fallback jika ternyata data menghasilkan kurang/lebih dari 3 cluster
+        for cid in remaining_ids:
+            if cluster_means.loc[cid, 'Total_Error_Encoder'] > cluster_means.loc[cid, 'Total_Error_Netburner']:
+                nama_kategori[cid] = '🟡 Rawan Encoder'
+            else:
+                nama_kategori[cid] = '🔴 Rawan Netburner'
 
 # 3. Terapkan kamus tersebut ke dalam kolom baru
 df_kategori['Kategori_Kerusakan'] = df_kategori['Cluster_ID'].map(nama_kategori)
