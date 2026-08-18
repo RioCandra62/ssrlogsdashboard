@@ -44,6 +44,3 @@ sample.json
 
 #ignore CSV
 csv*
-
-# backend folder
-/ssr
