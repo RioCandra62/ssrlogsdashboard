@@ -1,4 +1,20 @@
+import os
 import socket
+import uvicorn
+import joblib
+import pandas as pd
+import polars as pl
+import numpy as np
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+from mlxtend.frequent_patterns import apriori, association_rules
 
 def check_connection(ip_address, port=1433, timeout=3):
     try:
@@ -14,10 +30,7 @@ def check_connection(ip_address, port=1433, timeout=3):
 
 # In[3]:
 
-import os
-import pandas as pd
-from sqlalchemy import create_engine
-from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -28,18 +41,8 @@ database_name = os.getenv("DATABASE_NAME")
 username = os.getenv("DATABASE_USERNAME")
 password = os.getenv("DATABASE_PASSWORD")
 
-
-# Jika menggunakan Windows Authentication (tanpa password):
-# connection_string = f"mssql+pyodbc://{username}:{password}@{server_name}/{database_name}?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes"
-
-# engine = create_engine(connection_string)
-
-# print("Berhasil terhubung ke SQL Server! Mulai menarik data...")
-
-import polars as pl
-
 db_url = f"mssql+pyodbc://{username}:{password}@{server_name}/{database_name}?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes"
-engine = create_engine(db_url)
+# engine = create_engine(db_url)
 print("Fetching data")
 
 failure_query = "SELECT * FROM ssrlogs.failure_summary"
@@ -101,14 +104,14 @@ except Exception as e:
 elev_query = "SELECT * FROM ssrlogs.elevationCurrent"
 try:
     print("Elevation...")
-    # Membaca jauh lebih cepat dari Pandas
-    # df_elev_polars = pl.read_database_uri(elev_query, db_url)
+    #Membaca jauh lebih cepat dari Pandas
+    df_elev_polars = pl.read_database_uri(elev_query, db_url)
     
-    # # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
-    # df_elev = df_elev_polars.to_pandas() 
+    # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
+    df_elev = df_elev_polars.to_pandas() 
     
     # using Pandas
-    df_elev = pd.read_sql(elev_query, engine)
+    # df_elev = pd.read_sql(elev_query, engine)
 
 
     print("Elevation Current Done! (Polars Engine)")
@@ -137,10 +140,7 @@ print(f"Total baris Netburner : {len(df_netburner)}")
 
 
 
-import pandas as pd
-import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
+
 
 # Menghitung total error untuk tiap radar
 # (Berapa kali tiap radar masuk tabel failure, encoder, dan netburner)
@@ -229,9 +229,7 @@ df_kategori['Kategori_Kerusakan'] = df_kategori['Cluster_ID'].map(nama_kategori)
 df_kategori[['radar_no', 'Kategori_Kerusakan']]
 
 
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix
+
 
 
 # In[8]:
@@ -332,7 +330,7 @@ print("\n=== PENGARUH GEJALA (FEATURE IMPORTANCE) ===")
 print(feature_imp)
 
 
-from mlxtend.frequent_patterns import apriori, association_rules
+
 
 print("1. Menyiapkan Data (Mengubah Angka Menjadi Status Ya/Tidak)...")
 # Algoritma ini tidak butuh jumlah error, dia cuma butuh tahu "Ada error atau tidak?"
@@ -360,7 +358,7 @@ print("\n=== HASIL DETEKSI REAKSI BERANTAI ===")
 hasil_tampil = rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']].head(10)
 print(hasil_tampil.to_string(index=False))
 
-import joblib
+
 
 # Simpan model Random Forest ke dalam file .pkl
 joblib.dump(rf_model, 'model_radar_rf.pkl')
@@ -368,12 +366,7 @@ print("Model berhasil disimpan! Siap dibawa ke backend.")
 
 
 # # Install dulu: pip install fastapi uvicorn scikit-learn pandas joblib
-from fastapi import FastAPI
-import uvicorn
-from fastapi.middleware.cors import CORSMiddleware # 1. Wajib import ini
-from pydantic import BaseModel
-import joblib
-import pandas as pd
+
 
 app = FastAPI()
 
@@ -498,7 +491,7 @@ async def get_markov_chain():
 @app.get("/api/ml/apriori")
 async def get_apriori_analysis():
     try:
-        from mlxtend.frequent_patterns import apriori, association_rules
+
 
         # 1. SIAPKAN KERANJANG BELANJA (1 Keranjang = 1 Radar di 1 Hari)
         df_basket = df_failure[['date', 'radar_no', 'failure_type']].copy()
