@@ -5,5 +5,9 @@ polars
 connectorx
 mlxtend
 python-dotenv
-SQLAlchemy
+numpy
+scikit-learn
+mlxtend
+joblib
 pyodbc
+pydantic
