@@ -11,3 +11,4 @@ mlxtend
 joblib
 pyodbc
 pydantic
+sqlalchemy
