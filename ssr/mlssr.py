@@ -1,5 +1,21 @@
 import os
+import os
 import socket
+import uvicorn
+import joblib
+import pandas as pd
+import polars as pl
+import numpy as np
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+from mlxtend.frequent_patterns import apriori, association_rules
 import uvicorn
 import joblib
 import pandas as pd
@@ -27,6 +43,7 @@ def check_connection(ip_address, port=1433, timeout=3):
 # Panggil fungsi ini di awal file mlssr.py menggantikan subprocess.run
 
 # In[3]:
+
 
 
 
@@ -93,6 +110,8 @@ try:
     #Membaca jauh lebih cepat dari Pandas
     df_elev_polars = pl.read_database_uri(elev_query, db_url)
     
+    # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
+    df_elev = df_elev_polars.to_pandas() 
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_elev = df_elev_polars.to_pandas() 
     
@@ -184,6 +203,7 @@ df_kategori['Kategori_Kerusakan'] = df_kategori['Cluster_ID'].map(nama_kategori)
 # Gunakan .head(20) untuk melihat 20 radar pertama, 
 # atau hapus .head(20) jika komputermu kuat menampilkan semuanya ke bawah.
 df_kategori[['radar_no', 'Kategori_Kerusakan']]
+
 
 
 
@@ -309,6 +329,7 @@ joblib.dump(rf_model, 'model_radar_rf.pkl')
 # # Install dulu: pip install fastapi uvicorn scikit-learn pandas joblib
 
 
+
 app = FastAPI()
 
 app.add_middleware(
@@ -432,6 +453,7 @@ async def get_markov_chain():
 @app.get("/api/ml/apriori")
 async def get_apriori_analysis():
     try:
+
 
 
         # 1. SIAPKAN KERANJANG BELANJA (1 Keranjang = 1 Radar di 1 Hari)
