@@ -5,3 +5,4 @@ polars
 connectorx
 mlxtend
 python-dotenv
+SQLAlchemy
