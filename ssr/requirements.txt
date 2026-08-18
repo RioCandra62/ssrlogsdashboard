@@ -6,3 +6,4 @@ connectorx
 mlxtend
 python-dotenv
 SQLAlchemy
+pyodbc
