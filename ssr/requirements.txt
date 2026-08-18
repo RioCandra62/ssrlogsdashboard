@@ -5,3 +5,10 @@ polars
 connectorx
 mlxtend
 python-dotenv
+numpy
+scikit-learn
+mlxtend
+joblib
+pyodbc
+pydantic
+sqlalchemy

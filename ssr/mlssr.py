@@ -20,10 +20,8 @@ def check_connection(ip_address, port=1433, timeout=3):
     try:
         # Mencoba membuka koneksi TCP ke IP dan Port tujuan
         with socket.create_connection((ip_address, port), timeout=timeout):
-            print("Koneksi ke database aman!")
             return True
     except OSError:
-        print("Server tidak merespon / port tertutup!")
         return False
 
 # Panggil fungsi ini di awal file mlssr.py menggantikan subprocess.run
@@ -43,67 +41,55 @@ password = os.getenv("DATABASE_PASSWORD")
 
 db_url = f"mssql+pyodbc://{username}:{password}@{server_name}/{database_name}?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes"
 # engine = create_engine(db_url)
-print("Fetching data")
 
 failure_query = "SELECT * FROM ssrlogs.failure_summary"
 try:
-    print("Failure summary...")
     # Membaca jauh lebih cepat dari Pandas
     df_failure_polars = pl.read_database_uri(failure_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_failure = df_failure_polars.to_pandas() 
     
-    print("Failure Summary Done! (Polars Engine)")
 except Exception as e:
-    print(f"Error fetching data: {e}")
+    print(e)
+
 
 azimuth_query = "SELECT * FROM ssrlogs.azimuth"
 try:
-    print("azimuth...")
     # Membaca jauh lebih cepat dari Pandas
     df_azimuth_polars = pl.read_database_uri(azimuth_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_azimuth = df_azimuth_polars.to_pandas() 
     
-    print("Azimuth Done! (Polars Engine)")
 except Exception as e:
-    print(f"Error fetching data: {e}")
-
+    print(e)
 
 encoder_query = "SELECT * FROM ssrlogs.encoderAlarm"
 try:
-    print("Encoder Alarm...")
     # Membaca jauh lebih cepat dari Pandas
     df_encoder_polars = pl.read_database_uri(encoder_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_encoder = df_encoder_polars.to_pandas() 
     
-    print("Encoder Alarm Done! (Polars Engine)")
 except Exception as e:
-    print(f"Error fetching data: {e}")
-
+    print(e)
 
 
 netburner_query = "SELECT * FROM ssrlogs.netburner"
 try:
     # Membaca jauh lebih cepat dari Pandas
-    print("Netburner...")
     df_netburner_polars = pl.read_database_uri(netburner_query, db_url)
     
     # Kalau kamu tetap butuh format Pandas untuk script ML yang lama:
     df_netburner = df_netburner_polars.to_pandas() 
     
-    print("NetBurner Done! (Polars Engine)")
 except Exception as e:
-    print(f"Error fetching data: {e}")
-
+    print(e)
 
 elev_query = "SELECT * FROM ssrlogs.elevationCurrent"
 try:
-    print("Elevation...")
     #Membaca jauh lebih cepat dari Pandas
     df_elev_polars = pl.read_database_uri(elev_query, db_url)
     
@@ -112,35 +98,10 @@ try:
     
     # using Pandas
     # df_elev = pd.read_sql(elev_query, engine)
+    
 
-
-    print("Elevation Current Done! (Polars Engine)")
 except Exception as e:
-    print(f"Error fetching data: {e}")
-
-
-print("Data berhasil ditarik ke dalam Pandas DataFrame!")
-
-# Cek sekilas jumlah baris datanya
-print(f"Total baris Failure Summary: {len(df_failure)}")
-print(f"Total baris Encoder Alarm: {len(df_encoder)}")
-print(f"Total baris Azimuth : {len(df_azimuth)}")
-print(f"Total baris elevation Current: {len(df_elev)}")
-print(f"Total baris Netburner : {len(df_netburner)}")
-
-# 3. SIMPAN KE CSV SEMENTARA (Opsional tapi sangat disarankan)
-# Supaya besok kalau mau eksperimen ML, nggak perlu narik dari SQL lagi, cukup baca CSV ini.
-# df_failure.to_csv('failure_summary_raw.csv', index=False)
-# df_encoder.to_csv('encoder_raw.csv', index=False)
-# df_netburner.to_csv('netburner_raw.csv', index=False)
-# df_azimuth.to_csv('azimuth_raw.csv', index=False)
-# df_elev.to_csv('elevation_raw.csv', index=False)
-# print("\nData mentah sudah dibackup ke file CSV lokal.")
-
-
-
-
-
+    print(e)
 
 # Menghitung total error untuk tiap radar
 # (Berapa kali tiap radar masuk tabel failure, encoder, dan netburner)
@@ -164,7 +125,6 @@ scaler = StandardScaler()
 radar_scaled = scaler.fit_transform(df_radar)
 
 # 3. PROSES K-MEANS CLUSTERING
-print("Mesin sedang membagi radar ke dalam kelompok...")
 # Kita bagi menjadi 3 kelompok (Cluster)
 kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
 df_radar['Cluster_ID'] = kmeans.fit_predict(radar_scaled)
@@ -172,14 +132,11 @@ df_radar['Cluster_ID'] = kmeans.fit_predict(radar_scaled)
 # 4. MEMBACA WATAK TIAP KELOMPOK
 # Kita cari rata-rata error untuk tiap cluster agar tahu ini kelompok apa
 cluster_summary = df_radar.groupby('Cluster_ID').mean()
-print("\n=== PROFIL RATA-RATA TIAP KELOMPOK ===")
-print(cluster_summary)
 
 # 5. EXPORT UNTUK FRONTEND / POWER BI
 # Simpan hasil akhir yang sudah ada label kelompoknya ke CSV baru
 df_radar.reset_index(inplace=True)
 df_radar.to_csv('radar_clusters_result.csv', index=False)
-print("Selesai! File 'radar_clusters_result.csv' siap ditarik ke Power BI.")
 
 
 # In[6]:
@@ -235,7 +192,6 @@ df_kategori[['radar_no', 'Kategori_Kerusakan']]
 # In[8]:
 
 
-print("1. Menyiapkan Garis Waktu (Timeline)...")
 # --- PERBAIKAN FORMAT TANGGAL ---
 df_failure['date'] = pd.to_datetime(df_failure['date']).dt.normalize()
 df_encoder['date'] = pd.to_datetime(df_encoder['date']).dt.normalize()
@@ -254,7 +210,6 @@ df_timeline = df_timeline.fillna(0)
 df_timeline = df_timeline.sort_values(by=['radar_no', 'date'])
 
 # --- TAMBAHAN KODE: MEMBUAT KALENDER PENUH (HARI AMAN & RUSAK) ---
-print("1.5. Menyisipkan Hari-Hari Aman ke dalam Kalender...")
 tanggal_awal = df_timeline['date'].min()
 tanggal_akhir = df_timeline['date'].max()
 semua_tanggal = pd.date_range(start=tanggal_awal, end=tanggal_akhir)
@@ -275,7 +230,6 @@ df_timeline = df_timeline.sort_values(by=['radar_no', 'date'])
 # In[9]:
 
 
-print("2. Membuat Target Mesin Waktu (Prediksi H+1)...")
 # ... (Lanjut ke kode shift(-1) dan seterusnya seperti biasa) ...
 # Geser target failure hari ini ke hari sebelumnya
 df_timeline['Target_Besok_Rusak'] = df_timeline.groupby('radar_no')['is_failure_today'].shift(-1)
@@ -291,7 +245,6 @@ df_timeline['Target_Besok_Rusak'] = df_timeline['Target_Besok_Rusak'].apply(lamb
 # In[10]:
 
 
-print("3. Memulai Training Random Forest...")
 X = df_timeline[['count_encoder', 'count_netburner']]
 y = df_timeline['Target_Besok_Rusak']
 
@@ -305,10 +258,7 @@ rf_model.fit(X_train, y_train)
 # In[11]:
 
 
-print("4. Ujian Kelulusan Model!")
 y_pred = rf_model.predict(X_test)
-print("\n=== RAPOR AKURASI (CLASSIFICATION REPORT) ===")
-print(classification_report(y_test, y_pred))
 
 # --- MENGEMBALIKAN NAMA RADAR UNTUK POWER BI ---
 hasil_prediksi = X_test.copy()
@@ -320,19 +270,14 @@ status_map = {0: 'Aman', 1: '⚠️ BAHAYA'}
 hasil_prediksi['Prediksi_Besok'] = hasil_prediksi['Prediksi_Besok'].map(status_map)
 hasil_prediksi['Fakta_Sebenarnya'] = hasil_prediksi['Fakta_Sebenarnya'].map(status_map)
 
-print("\n=== PREVIEW DATA UNTUK POWER BI ===")
 kolom_tampil = ['radar_no', 'count_encoder', 'count_netburner', 'Prediksi_Besok', 'Fakta_Sebenarnya']
-print(hasil_prediksi[kolom_tampil].head(15))
 
 # Feature Importance (Tingkat Pengaruh)
 feature_imp = pd.Series(rf_model.feature_importances_, index=X.columns).sort_values(ascending=False)
-print("\n=== PENGARUH GEJALA (FEATURE IMPORTANCE) ===")
-print(feature_imp)
 
 
 
 
-print("1. Menyiapkan Data (Mengubah Angka Menjadi Status Ya/Tidak)...")
 # Algoritma ini tidak butuh jumlah error, dia cuma butuh tahu "Ada error atau tidak?"
 basket = df_timeline[['count_encoder', 'count_netburner', 'is_failure_today']].copy()
 
@@ -342,7 +287,6 @@ basket = basket > 0
 # Ubah nama kolom agar hasil bacanya nanti seperti bahasa manusia
 basket.columns = ['Ada_Error_Encoder', 'Ada_Error_Netburner', 'Mesin_Mati_Total']
 
-print("2. Mencari Pola Reaksi Berantai (Apriori)...")
 # min_support=0.01 artinya kita cuma mencari kejadian yang minimal muncul di 1% dari total data kita
 frequent_itemsets = apriori(basket, min_support=0.01, use_colnames=True)
 
@@ -353,16 +297,13 @@ rules = association_rules(frequent_itemsets, metric="lift", min_threshold=1.0)
 # Urutkan dari yang paling pasti terjadi (Confidence tertinggi)
 rules = rules.sort_values('confidence', ascending=False)
 
-print("\n=== HASIL DETEKSI REAKSI BERANTAI ===")
 # Rapikan format tabel agar enak dibaca
 hasil_tampil = rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']].head(10)
-print(hasil_tampil.to_string(index=False))
 
 
 
 # Simpan model Random Forest ke dalam file .pkl
 joblib.dump(rf_model, 'model_radar_rf.pkl')
-print("Model berhasil disimpan! Siap dibawa ke backend.")
 
 
 # # Install dulu: pip install fastapi uvicorn scikit-learn pandas joblib
@@ -555,7 +496,6 @@ async def get_apriori_analysis():
 
 # 4. Tombol Start Server dari dalam Cell
 if __name__ == "__main__":
-    print("Menyalakan mesin FastAPI... Buka http://127.0.0.1:8000 di browsermu!")
     uvicorn.run(app, host="127.0.0.1", port=8000)
 
 
